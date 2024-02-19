@@ -86,10 +86,10 @@ async def authenticate(
 
 
 class TicketInfo( BaseModel ):
-    movie_name: str
-    movie_date: str
-    ticket_num: str
-    ticket_state: str
+    movieName: str
+    movieDate: str
+    ticketNum: str
+    ticketState: str
 
 def handle_tickets( cur, ticket_id ):
     cur.execute(
@@ -113,10 +113,10 @@ def handle_tickets( cur, ticket_id ):
     ticket_info = cur.fetchone()
 
     return TicketInfo(
-        movie_name = ticket_info[0],
-        movie_date = ticket_info[1].strftime("%d/%m/%Y %H:%M"),
-        ticket_num = str(ticket_info[2]),
-        ticket_state = ticket_info[3]
+        movieName = ticket_info[ 0 ],
+        movieDate = ticket_info[ 1 ].strftime( "%d/%m/%Y %H:%M" ),
+        ticketNum = "#" + str( ticket_info[ 2 ] ),
+        ticketState = ticket_info[ 3 ]
     )
 
 @app.get( "/tickets/{ticket_id}" )
