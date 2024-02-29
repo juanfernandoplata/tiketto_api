@@ -15,13 +15,7 @@ from datetime import datetime, timedelta
 ####################################################################################
 # PARAMETRIZAR Y LLEVAR A .ENV
 
-CONN_PARAMS = {
-    "dbname": "tiketto",
-    "user": "postgres",
-    "password": "postgres",
-    "host": "localhost",
-    "port": "5432"
-}
+DB_URL = "postgres://tiketto:1kWsULsQdTMhfof19OFRUjfDqzq2oY4Q@dpg-cnf90a5a73kc7391qfeg-a.oregon-postgres.render.com/tiketto"
 
 PWD_CONTEXT = CryptContext( schemes = [ "bcrypt" ], deprecated = "auto" )
 
@@ -112,7 +106,7 @@ def handleBusinessAuth( cur, credentials ):
 async def businessAuth(
     credentials: AuthRequest
 ) -> AccessToken:
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             return handleBusinessAuth( cur, credentials )
 
@@ -172,7 +166,7 @@ async def eventsOffering(
 
     user: Annotated[ User, Depends( decodeToken ) ]
 ) -> EventInfoList:
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             return handleEventsOffering( cur, user.compId, venueId, eventType )
 
@@ -226,7 +220,7 @@ async def eventAvailability(
 
     user: Annotated[ User, Depends( decodeToken ) ]
 ) -> Availability:
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             return handleEventAvailability( cur, eventId )
 
@@ -315,7 +309,7 @@ async def eventReserve(
 
     user: Annotated[ User, Depends( decodeToken ) ]
 ) -> ReservId:
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             return handleEventReserve( cur, reservInfo )
 
@@ -344,7 +338,7 @@ async def reservationCancel(
 
     user: Annotated[ User, Depends( decodeToken ) ]
 ):
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             return handleReservationCancel( cur, reservId )
 
@@ -378,7 +372,7 @@ async def reservationConfirm(
 
     user: Annotated[ User, Depends( decodeToken ) ]
 ):
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             return handleReservationConfirm( cur, reservId )
 
@@ -422,7 +416,7 @@ def handleTickets( cur, ticketId ):
 
 @app.get( "/tickets/{ticketId}" )
 async def tickets( ticketId: int ) -> TicketInfo:
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             return handleTickets( cur, ticketId )
 
@@ -447,6 +441,6 @@ def handleAdmitTicket( cur, ticketId ):
 
 @app.post( "/tickets/admit/{ticketId}" )
 async def tickets( ticketId: int ):
-    with psycopg.connect( **CONN_PARAMS ) as conn:
+    with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             handleAdmitTicket( cur, ticketId )
