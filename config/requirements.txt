@@ -2,5 +2,5 @@ python-dotenv
 fastapi[all]
 pydantic
 psycopg[binary,pool]
-passlib
-python-jose
+passlib[bcrypt]
+python-jose[cryptography]

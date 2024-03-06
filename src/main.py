@@ -5,7 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel
-from typing import Annotated, List
+from typing import Annotated
 from enum import Enum
 
 import psycopg
@@ -13,7 +13,7 @@ import psycopg
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-load_dotenv( "./config/.env" )
+load_dotenv( "./.env" )
 
 CONN_URL = os.environ.get( "CONN_URL" )
 
@@ -54,6 +54,9 @@ def decode_token( access_token: str ) -> BusinessUser:
 
 
 
+class AccessToken( BaseModel ):
+    access_token: str
+
 def handle_business_auth( cur, username, password ):
     cur.execute(
         f"""
@@ -88,26 +91,32 @@ def handle_business_auth( cur, username, password ):
         "user_role": user_data[ 3 ]
     }
 
-    return jwt.encode( user_data, SECRET_KEY, algorithm = ALGORITHM )
+    return AccessToken(
+        access_token = jwt.encode( user_data, SECRET_KEY, algorithm = ALGORITHM )
+    )
 
 @app.post( "/business/authenticate" )
 def business_auth(
     username: str,
     password: str
-) -> str:
+) -> AccessToken:
     with psycopg.connect( CONN_URL ) as conn:
         with conn.cursor() as cur:
             return handle_business_auth( cur, username, password )
 
 
 
-class EventInfo( BaseModel ):
+class Event( BaseModel ):
     event_id: int
     event_date: str
     event_time: str
     event_caracts: dict
 
+class Events( BaseModel ):
+    events: list[ Event ]
+
 def handle_get_events_offering( cur, comp_id, venue_id, event_type ):
+    # Agregar guarda que revise si el tipo de evento es valido
     cur.execute(
         f"""
         select te.*, e.event_date
@@ -131,14 +140,14 @@ def handle_get_events_offering( cur, comp_id, venue_id, event_type ):
         for i in range( 1, len( cur.description ) - 1 ):
             event_caracts[ cur.description[ i ][ 0 ] ] = event[ i ]
 
-        events.append( EventInfo(
+        events.append( Event(
             event_id = event[ 0 ],
             event_date = event[ -1 ].strftime( "%d/%m/%Y" ),
             event_time = event[ -1 ].strftime( "%H:%M" ),
             event_caracts = event_caracts
         ))
 
-    return events
+    return Events( events = events )
 
 @app.get( "/business/venues/{venue_id}/events/{event_type}/offering" )
 def get_events_offering(
@@ -146,12 +155,15 @@ def get_events_offering(
     event_type: str,
 
     user: Annotated[ BusinessUser, Depends( decode_token ) ]
-) -> List[ EventInfo ]:
+) -> Events:
     with psycopg.connect( CONN_URL ) as conn:
         with conn.cursor() as cur:
             return handle_get_events_offering( cur, user.comp_id, venue_id, event_type )
 
 
+
+class EventAvail( BaseModel ):
+    availability: int
 
 def handle_get_event_availability( cur, event_id ):
     cur.execute(
@@ -175,19 +187,22 @@ def handle_get_event_availability( cur, event_id ):
 
     reserved = cur.fetchone()[ 0 ]
 
-    return ( capacity - reserved )
+    return EventAvail( availability = capacity - reserved )
 
 @app.get( "/business/events/{event_id}/availability" )
 def get_event_availability(
     event_id: int,
 
     user: Annotated[ BusinessUser, Depends( decode_token ) ]
-) -> int:
+) -> EventAvail:
     with psycopg.connect( CONN_URL ) as conn:
         with conn.cursor() as cur:
             return handle_get_event_availability( cur, event_id )
 
 
+
+class ReservId( BaseModel ):
+    reserv_id: int
 
 # Aqui se hacen validaciones de disponibilidad del evento.
 # Sin embargo, estas verificaciones deberian incorporarse
@@ -254,7 +269,7 @@ def handle_reserve_event( cur, event_id, client_id, num_tickets ):
 
     reserv_id = cur.fetchone()[ 0 ]
 
-    return reserv_id
+    return ReservId( reserv_id = reserv_id )
 
 @app.post( "/business/reservations" )
 def reserve_event(
@@ -263,7 +278,7 @@ def reserve_event(
     num_tickets: int,
 
     user: Annotated[ BusinessUser, Depends( decode_token ) ]
-) -> int:
+) -> ReservId:
     with psycopg.connect( CONN_URL ) as conn:
         with conn.cursor() as cur:
             return handle_reserve_event( cur, event_id, client_id, num_tickets )
@@ -404,7 +419,11 @@ def handle_get_ticket( cur, ticket_id ):
     )
 
 @app.get( "/tickets/{ticket_id}" )
-def get_ticket( ticket_id: int ) -> TicketInfo:
+def get_ticket(
+    ticket_id: int,
+
+    user: Annotated[ BusinessUser, Depends( decode_token ) ]
+) -> TicketInfo:
     with psycopg.connect( CONN_URL ) as conn:
         with conn.cursor() as cur:
             return handle_get_ticket( cur, ticket_id )
@@ -417,6 +436,7 @@ def handle_admit_ticket( cur, ticket_id ):
         update logistics.ticket
         set state_type = 'INVALID'
         where ticket_id = { ticket_id }
+        and state_type = 'VALID'
         """
     )
 
@@ -427,7 +447,10 @@ def handle_admit_ticket( cur, ticket_id ):
         )
 
 @app.post( "/tickets/admit/{ticket_id}" )
-def admit_ticket( ticket_id: int ):
+def admit_ticket(
+    ticket_id: int,
+     user: Annotated[ BusinessUser, Depends( decode_token ) ]
+):
     with psycopg.connect( CONN_URL ) as conn:
         with conn.cursor() as cur:
             handle_admit_ticket( cur, ticket_id )
