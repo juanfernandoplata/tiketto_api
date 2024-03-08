@@ -187,6 +187,9 @@ def handle_get_event_availability( cur, event_id ):
 
     reserved = cur.fetchone()[ 0 ]
 
+    if( not reserved ):
+        reserved = 0
+
     return EventAvail( availability = capacity - reserved )
 
 @app.get( "/business/events/{event_id}/availability" )
@@ -227,8 +230,11 @@ def handle_reserve_event( cur, event_id, client_id, num_tickets ):
         and r.reserv_state in ('CONFIRMED', 'PENDING_CONFIRM')
         """
     )
-
+    
     reserved = cur.fetchone()[ 0 ]
+
+    if( not reserved ):
+        reserved = 0
 
     if( num_tickets > capacity - reserved ):
         raise HTTPException(
